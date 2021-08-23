@@ -78,7 +78,7 @@ sampleNames(raw_data) <- pd$Filename
 #Analisis de calidad (Imagen de cada array)
 #####################################################################
 
-for (i in 1:22)
+for (i in 1:11)
 {
   name = paste("./04_ANALISIS_DE_CALIDAD/01_IMAGENES/IMAGEN",i,".jpg",sep="")
   jpeg(name)
@@ -91,7 +91,7 @@ for (i in 1:22)
 #Analisis de calidad con arrayQualityMetrics (raw_data)
 #####################################################################
 
-arrayQualityMetrics(expressionset = raw_data[, 1:22],
+arrayQualityMetrics(expressionset = raw_data[, 1:11],
                     outdir = "./04_ANALISIS_DE_CALIDAD/02_REPORTE_DE_CALIDAD_RAW_DATA",
                     force = TRUE,
                     do.logtransform = TRUE)
@@ -126,11 +126,11 @@ dataGG <- data.frame(PC1 = PCA$x[,1], PC2 = PCA$x[,2],
                      Replicate = pData(norm_data)$Replicate 
 )
 
-pdf("./04_ANALISIS_DE_CALIDAD/PCA_GSE24206.pdf")
+pdf("./04_ANALISIS_DE_CALIDAD/PCA_GSE21369.pdf")
 ggplot(dataGG, aes(PC1, PC2, label=row.names(dataGG))) +
   geom_point(aes( colour = Group))+
   geom_text(size=1)+
-  ggtitle("GSE24206 | PCA plot of the log-transformed norm expression data") +
+  ggtitle("GSE21369 | PCA plot of the log-transformed norm expression data") +
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
   theme(plot.title = element_text(hjust = 0.2))+
@@ -167,16 +167,16 @@ design
 cont.matrix<- makeContrasts(IPF-Control, levels=design)
 cont.matrix
 
-fit<-lmFit(Annot_final[4:25],design)
+fit<-lmFit(Annot_final[4:14],design)
 fit2= contrasts.fit(fit,cont.matrix)
 fit3= eBayes(fit2)
 
 #Guardar tabla
 table_CD = topTable(fit3, coef=1, number=nrow(fit), sort.by= "none",adjust="fdr")
 
-FinalTable = data.frame(Annot_final[,1:3], table_CD, Annot_final[,4:25])
+FinalTable = data.frame(Annot_final[,1:3], table_CD, Annot_final[,4:14])
 
-write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE24206.txt", sep="\t",
+write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE21369.txt", sep="\t",
             row.names=F, col.names=T, quote=F)
 
 #####################################################################
@@ -194,13 +194,13 @@ names(keyvals)[keyvals == '#e3deeb'] <- 'NS'
 names(keyvals)[keyvals == '#0000ff'] <- 'Down'
 
 #Generamos el Volcanoplot
-pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Volcano_GSE24206.pdf")
+pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Volcano_GSE21369.pdf")
 EnhancedVolcano(FinalTable,lab = FinalTable$Gene.Symbol,
                 x = 'logFC',
                 y = 'adj.P.Val',
                 ylab = bquote(~adj.P.Val),
                 xlab = bquote(~logFC),
-                ylim = c(0, 10),
+                ylim = c(0, 3),
                 xlim = c(-5, 5),
                 pCutoff = 0.05,
                 FCcutoff = 0.8,
@@ -216,7 +216,7 @@ EnhancedVolcano(FinalTable,lab = FinalTable$Gene.Symbol,
                 legendLabels = c("NS", expression(LogFC), "adj.P.Val", expression(adj.P.Val ~ and
                                                                                   ~ logFC)),
                 legendLabSize = 8,
-                title = "     GSE24206 | Volcano plot of differential expression",
+                title = "     GSE21369 | Volcano plot of differential expression",
                 titleLabSize = 13,
                 subtitleLabSize = 9,
                 captionLabSize = 9,
@@ -243,9 +243,9 @@ data_filtered <- data_filtered %>% drop_na
 
 #Cantidad de genes expresados diferencialmente
 nrow(data_filtered)
-ww
+
 #Exportamos la lista filtrada
-write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE24206.txt", sep="\t", row.names=F, col.names=T, quote=F)
+write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE21369.txt", sep="\t", row.names=F, col.names=T, quote=F)
 
 #####################################################################
 #Heatmap
@@ -255,23 +255,23 @@ write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE24206.txt", sep="
 cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
-dataZ <- t(apply(data_filtered[,10:31], 1, cal_z_score))
-data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,1:5], dataZ[,6:22])
+dataZ <- t(apply(data_filtered[,10:20], 1, cal_z_score))
+data_filtered2 <- cbind(data_filtered[,1:5], dataZ[,1:5], dataZ[,6:11])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:14]), max(data_filtered3[,10:31]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,6:10]), max(data_filtered3[,6:16]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
 #Heatmap sin genes
-pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE24206.pdf")
-Heatmap(as.matrix(data_filtered3[,10:31]),
-        name = "Z-Score", column_title = "GSE24206 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
+pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE21369.pdf")
+Heatmap(as.matrix(data_filtered3[,6:16]),
+        name = "Z-Score", column_title = "GSE21369 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
         col = col_fun,
-        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:31])))),
+        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,6:16])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
         column_names_gp = gpar(fontsize = 3, fontface = "bold"),
