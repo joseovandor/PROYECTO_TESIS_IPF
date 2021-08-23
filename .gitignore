@@ -3,6 +3,7 @@
 *.jpg
 *.pdf
 *.CEL
+*.gz
 .Rproj.user
 .Rhistory
 .RData
