@@ -1,9 +1,10 @@
-# Built application files
+# Ignore files
 *.png
 *.jpg
 *.pdf
 *.CEL
 *.gz
+*.tar
 .Rproj.user
 .Rhistory
 .RData
