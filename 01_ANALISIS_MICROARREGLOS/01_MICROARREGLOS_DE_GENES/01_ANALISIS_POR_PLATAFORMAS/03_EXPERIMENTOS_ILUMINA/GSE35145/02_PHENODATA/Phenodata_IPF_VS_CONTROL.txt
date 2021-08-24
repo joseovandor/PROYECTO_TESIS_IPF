@@ -1,0 +1,9 @@
+IDATfile	Sample	Group
+IPF1.idat	IPF1	IPF
+IPF2.idat	IPF2	IPF
+IPF3.idat	IPF3	IPF
+IPF4.idat	IPF4	IPF
+Control1.idat	Control1	Control
+Control2.idat	Control2	Control
+Control3.idat	Control3	Control
+Control4.idat	Control4	Control
