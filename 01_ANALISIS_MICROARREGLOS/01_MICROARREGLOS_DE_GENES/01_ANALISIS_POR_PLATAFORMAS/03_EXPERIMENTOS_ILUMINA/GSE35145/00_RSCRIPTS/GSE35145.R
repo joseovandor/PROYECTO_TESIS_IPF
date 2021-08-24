@@ -5,11 +5,6 @@
 #Fecha: Julio/2021
 
 #####################################################################
-# Instalacion de paqueterias
-#####################################################################
-
-
-#####################################################################
 # Llamado de librerias
 #####################################################################
 
@@ -31,8 +26,8 @@ library(tidyr)
 # Extraer directamente del formato .txt
 
 rawData <- read.table(
-  paste0('data/GSE35145_non-normalized_expression.txt'),
-  header = TRUE, sep = '\t', stringsAsFactors = FALSE, skip = 0)
+  paste0('./01_DATOS/GSE35145_non-normalized_expression.txt'),
+  header = TRUE, sep = '\t', stringsAsFactors = F, skip = 0)
 
 
 # Extraemos las columnas con el P-Val del objeto x
@@ -57,7 +52,7 @@ colnames(rawData)[1:8] <- c("IPF1","IPF2","IPF3","IPF4","Control1",
 #####################################################################
 
 #Seleccionamos nuestro archivo de anotacion
-bgxfile <- 'data/GPL10558_HumanHT-12_V4_0_R1_15002873_B.txt'
+bgxfile <- './01_DATOS/GPL10558_HumanHT-12_V4_0_R1_15002873_B.txt'
 
 #Asignamos a nuestros datos las anotaciones
 annot <- illuminaio::readBGX(bgxfile)$probes
@@ -77,7 +72,7 @@ annot <- annot[match(rownames(rawData), annot$Probe_Id),]
 #Seleccionamos nuestro archivo targets en formatro .txt
 #Este archivo lo cree usando Excel
 
-targetsfile <- 'Phenodata_IPF_VS_CONTROL.txt'
+targetsfile <- './02_PHENODATA/Phenodata_IPF_VS_CONTROL.txt'
 targetinfo <- readTargets(targetsfile, sep = '\t')
 rownames(targetinfo) <- gsub('\\.idat$', '',
                              gsub('^raw/', '', targetinfo$IDATfile))
@@ -103,8 +98,7 @@ project$other$Detection <- detectionpvalues
 #####################################################################
 
 #Boxplot
-par(mar=c(8,8,5,5), cex=0.6, cex.axis=1.0, cex.lab=1.3)
-
+pdf("./04_ANALISIS_DE_CALIDAD/BP_RAWDATA_GSE35145.pdf")
 boxplot(project$E,
         main="Boxplot of log2-intensitites for the Raw data",
         xlab="", ylab=bquote(~Log[2]~expression),
@@ -115,6 +109,7 @@ boxplot(project$E,
         boxwex = 0.6,
         staplewex = 0.6,
         outline=F)
+dev.off()
 
 #####################################################################
 #Normalizacion
@@ -123,8 +118,7 @@ boxplot(project$E,
 project.bgcorrect.norm <- neqc(project, offset = 16)
 
 #Boxplot
-par(mar=c(8,8,5,5), cex=0.6, cex.axis=1.0, cex.lab=1.3)
-
+pdf("./04_ANALISIS_DE_CALIDAD/BP_NORM_DATA_GSE35145.pdf")
 boxplot(project.bgcorrect.norm$E,
         main="Boxplot of log2-intensitites for the Raw data",
         xlab="", ylab=bquote(~Log[2]~expression),
@@ -135,6 +129,7 @@ boxplot(project.bgcorrect.norm$E,
         boxwex = 0.6,
         staplewex = 0.6,
         outline=F)
+dev.off()
 
 #####################################################################
 # PCA (NormData)
@@ -150,15 +145,16 @@ dataGG <- data.frame(PC1 = PCA$x[,1], PC2 = PCA$x[,2],
                      Disease =
                        Biobase::pData(targetinfo)$Group)
 
+pdf("./04_ANALISIS_DE_CALIDAD/PCA_GSE35145.pdf")
 ggplot(dataGG, aes(PC1, PC2, label=row.names(dataGG))) +
-  geom_point(aes(colour = targetinfo$Group))+geom_text(size=1) +
-  ggtitle("PCA plot of the log-transformed raw expression data") +
+  geom_text(size=2)+geom_point(aes(colour = targetinfo$Group)) +
+  ggtitle("GSE35145 | PCA plot of the log-transformed norm expression data") +
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
-  theme(plot.title = element_text(hjust = 0.5))+
-  coord_fixed(ratio = sd_ratio) +
+  theme(plot.title = element_text(hjust = 0.2))+
   scale_shape_manual(values = c(4,15)) + 
-  scale_color_manual(values = c("#fa1d19", "#1937fa"))
+  scale_color_manual(values = c("#0000ff", "#fb0007")) + theme(plot.title = element_text(face = "bold"))
+dev.off()
 
 
 #####################################################################
@@ -190,7 +186,7 @@ project.bgcorrect.norm.filt$genes <- project.bgcorrect.norm.filt$genes[,c(
 
 head(project.bgcorrect.norm.filt$genes)
 
-#Creamos la tabla final con la anotación
+#Creamos la tabla final con la anotaci?n
 AnnotFinal = data.frame(project.bgcorrect.norm.filt$genes$Probe_Id,
                         project.bgcorrect.norm.filt$genes$Symbol,
                         project.bgcorrect.norm.filt$E)
@@ -215,27 +211,43 @@ fit3
 head(fit3)
 
 #Guardar tabla
-table_CD = topTable(fit3, coef=1, number=nrow(fit), 
-                    sort.by= "none",adjust="fdr")
+table_CD = topTable(fit3, coef=1, number=nrow(fit), sort.by= "none",adjust="fdr")
 
-FinalTable = data.frame(table_CD, AnnotFinal)
+#Creamos la tabla final
+FinalTable = data.frame(AnnotFinal[,1:2], table_CD, AnnotFinal[,3:10])
 
-write.table(FinalTable, file="DEG_GSE35145.txt", sep="\t", 
-            row.names=F, col.names=TRUE, quote=FALSE)
+colnames(FinalTable)[1] <- "ID"
+colnames(FinalTable)[2] <- "SYMBOL"
+
+write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE35145.txt", sep="\t",
+            row.names=F, col.names=T, quote=F)
 
 #####################################################################
 #Volcano
 #####################################################################
-EnhancedVolcano(FinalTable,lab = FinalTable$"project.bgcorrect.norm.filt.genes.Symbol",
+
+#Valores de cada color
+keyvals <- ifelse(FinalTable$logFC <= -0.8 & FinalTable$adj.P.Val <0.05,
+                  '#0000ff',  ifelse(FinalTable$logFC >=0.8 & FinalTable$adj.P.Val <0.05,
+                                     '#fb0007', '#e3deeb'))
+#Nombre de valores de cada color
+keyvals[is.na(keyvals)] <- 'black'
+names(keyvals)[keyvals == '#fb0007'] <- 'Up'
+names(keyvals)[keyvals == '#e3deeb'] <- 'NS'
+names(keyvals)[keyvals == '#0000ff'] <- 'Down'
+
+#Generamos el Volcanoplot
+pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Volcano_GSE35145.pdf")
+EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 x = 'logFC',
                 y = 'adj.P.Val',
                 ylab = bquote(~adj.P.Val),
                 xlab = bquote(~logFC),
-                ylim = c(0, 2),
-                xlim = c(-5, 5),
+                ylim = c(0, 3),
+                xlim = c(-4, 4),
                 pCutoff = 0.05,
-                FCcutoff = 1,
-                col=c('#c2bcbc', '#a6a2a2', '#f59289', '#eb4334'),
+                FCcutoff = 0.8,
+                colCustom = keyvals,
                 cutoffLineType = 'solid',
                 cutoffLineCol = 'coral4',
                 hlineWidth = 0.2,
@@ -243,118 +255,55 @@ EnhancedVolcano(FinalTable,lab = FinalTable$"project.bgcorrect.norm.filt.genes.S
                 axisLabSize = 8,
                 pointSize = 1.0,
                 colAlpha = 1,
-                legendPosition = 'bottom',
+                legendPosition = 'right',
                 legendLabels = c("NS", expression(LogFC), "adj.P.Val", expression(adj.P.Val ~ and
                                                                                   ~ logFC)),
                 legendLabSize = 8,
-                title = "          Volcano plot of differential expresion of genes",
+                title = "     GSE35145 | Volcano plot of differential expression",
                 titleLabSize = 13,
                 subtitleLabSize = 9,
                 captionLabSize = 9,
                 border = 'full',
                 borderWidth = 0.5,
                 borderColour = 'black',
-                caption = paste0("Total = ", nrow(FinalTable), " genes"),
-                subtitle = "Comparation between IPF vs Control                                        pCutoff = 0.05,     FCcutoff = 1 ",
+                caption = NULL,
+                subtitle = "Comparation between IPF vs Control                           pCutoff = 0.05,     FCcutoff = 0.8",
                 labSize = 1.0)
-
-#####################################################################
-#Seleccionamos el resultado de la expresion diferencial
-#####################################################################
-
-#Seleccionamos genes con valores p-values por debajo 
-#del umbral
-
-topgenes = FinalTable[FinalTable[, "adj.P.Val"] < 0.05, ]
-
-dim(topgenes)
-head(topgenes)
-
-write.table(topgenes, file="TopGenes_GSE35145.txt", sep="\t", 
-            row.names=FALSE, col.names=TRUE, quote=FALSE)
-
-#Distinguimos entre los genes up and down regulated
-topups = topgenes[topgenes[, "logFC"] > 1, ]
-dim(topups)
-
-write.table(topgenes, file="TopUps_GSE35145.txt", sep="\t", 
-            row.names=FALSE, col.names=TRUE, quote=FALSE)
-
-topdowns = topgenes[topgenes[, "logFC"] < -1, ]
-dim(topdowns)
-
-write.table(topgenes, file="TopDowns_GSE35145.txt", sep="\t", 
-            row.names=FALSE, col.names=TRUE, quote=FALSE)
+dev.off()
 
 #####################################################################
 #Heatmap
 #####################################################################
 
-#Seleccionar los datos
-glimpse(FinalTable)
-data_filtered <- FinalTable %>% filter(adj.P.Val < 0.05 & (logFC > 1 | logFC < -1 ))
-nrow(data_filtered)
-
-#Cálculo de valor Z
+#Calculo de valor Z
 cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
 dataZ <- t(apply(data_filtered[,9:16], 1, cal_z_score))
-data_filtered2 <- data.frame(data_filtered[,8], dataZ[,5:8], dataZ[,1:4])
+data_filtered2 <- cbind(data_filtered[,1:8], dataZ[,5:8], dataZ[,1:4])
 data_filtered3 <- data_filtered2 %>% drop_na
 
-#Seleccionar de color
-col_fun <- colorRamp2(seq(min(data_filtered3[,2:5]), max(data_filtered3[,6:9]), length = 3), c("#f1a340", "#f7f7f7", "#998ec3"))
+#Seleccionar color
+col_fun <- colorRamp2(seq(min(data_filtered3[,9:12]), max(data_filtered3[,9:16]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
-
-#Opciones de guardado
-calc_ht_size = function(ht, unit = "inch") {
-  pdf()
-  ht = draw(ht)
-  w = ComplexHeatmap:::width(ht)
-  w = convertX(w, unit, valueOnly = TRUE)
-  h = ComplexHeatmap:::height(ht)
-  h = convertY(h, unit, valueOnly = TRUE)
-  dev.on()
-  c(w, h)
-}
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
-#Heatmap without genes
-ht <- Heatmap(as.matrix(data_filtered3[,2:9]),
-              name = "Z-Score", column_title = "Differential gene expression heatmap (GSE35145)",  column_title_gp = gpar(fontsize = 17, fontface = "bold"),
-              col = col_fun,
-              column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,2:9])))),
-              clustering_distance_rows = "euclidean",
-              row_names_gp = gpar(fontsize = 0),
-              column_names_gp = gpar(fontsize = 5, fontface = "bold"),
-              clustering_method_rows = "ward.D2",
-              width = unit(13, "cm"),
-              height = unit(15, "cm"))
-
-#Hetmap con genes
-
-ht2 <- Heatmap(as.matrix(data_filtered3[,2:9]),
-               name = "Z-Score", column_title = "Differential gene expression heatmap (GSE35145)",  column_title_gp = gpar(fontsize = 9, fontface = "bold"),
-               col = col_fun,
-               column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,2:9])))),
-               clustering_distance_rows = "euclidean",
-               clustering_method_rows = "ward.D2",
-               row_names_max_width = max_text_width(
-                 rownames(data_filtered3$data_filtered...8.),
-                 gp = gpar(fontsize = 12)),
-               row_labels = data_filtered3$data_filtered...8.,
-               width = unit(13, "cm"),
-               height = unit(16, "cm"),
-               row_names_gp = gpar(fontsize = 0.5, fontface = "bold"),
-               column_names_gp = gpar(fontsize = 5, fontface = "bold"),
-               show_heatmap_legend = TRUE)
-
-#Plot PDF
-size <- calc_ht_size(ht2)
-size
-pdf("test.pdf", width = size[1], height = size[2])
-ht2
+#Heatmap sin genes
+pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE35145.pdf")
+Heatmap(as.matrix(data_filtered3[,9:16]),
+        name = "Z-Score", column_title = "GSE35145 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
+        col = col_fun,
+        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,9:16])))),
+        clustering_distance_rows = "euclidean",
+        row_names_gp = gpar(fontsize = 0),
+        column_names_gp = gpar(fontsize = 3, fontface = "bold"),
+        clustering_method_rows = "ward.D2",
+        width = unit(9, "cm"),
+        height = unit(15, "cm"))
 dev.off()
+
+#####################################################################
+#End
+#####################################################################
