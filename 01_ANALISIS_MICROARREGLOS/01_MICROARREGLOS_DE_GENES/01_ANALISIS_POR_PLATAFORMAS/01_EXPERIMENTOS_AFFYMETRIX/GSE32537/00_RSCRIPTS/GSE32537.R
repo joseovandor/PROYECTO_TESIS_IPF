@@ -214,7 +214,7 @@ EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 legendLabels = c("NS", expression(LogFC), "adj.P.Val", expression(adj.P.Val ~ and
                                                                                   ~ logFC)),
                 legendLabSize = 8,
-                title = "     GSE24206 | Volcano plot of differential expression",
+                title = "     GSE32537 | Volcano plot of differential expression",
                 titleLabSize = 13,
                 subtitleLabSize = 9,
                 captionLabSize = 9,
