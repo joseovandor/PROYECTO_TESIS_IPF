@@ -271,6 +271,24 @@ EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 labSize = 1.0)
 dev.off()
 
+##########################################################################################################################################
+#Filtrado de datos y resulados
+##########################################################################################################################################
+
+#Aqui estableceremos nuestros valores de corte, en este caso usamos 0.05 padj y 0.8 de logFC
+
+##########################################################################################################################################
+
+#Filtrado de datos
+data_filtered <- FinalTable %>% filter(adj.P.Val < 0.05 & (logFC > 0.8 | logFC < -0.8 ))
+data_filtered <- data_filtered %>% drop_na
+
+#Cantidad de genes expresados diferencialmente
+nrow(data_filtered)
+
+#Exportamos la lista filtrada
+write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE35145.txt", sep="\t", row.names=F, col.names=T, quote=F)
+
 #####################################################################
 #Heatmap
 #####################################################################
