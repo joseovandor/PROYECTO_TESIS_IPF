@@ -154,6 +154,7 @@ gene_matrix <- as.data.frame(norm_matrix)
 gene_matrix <- tibble::rownames_to_column(gene_matrix, "row_names")
 
 Annot_final <- merge(x= Annot,y= gene_matrix,by.x='PROBEID',by.y='row_names',all=F)
+Annot_final <- Annot_final %>% drop_na
 
 
 #####################################################################
@@ -166,17 +167,17 @@ colnames(design) = levels(casos)
 design
 
 #Hacemos la matriz de contrastes
-cont.matrix<- makeContrasts(IPF-NC, levels=design)
+cont.matrix<- makeContrasts(IPF-Control, levels=design)
 cont.matrix
 
-fit<-lmFit(Annot_final[4:11],design)
+fit<-lmFit(Annot_final[4:10],design)
 fit2= contrasts.fit(fit,cont.matrix)
 fit3= eBayes(fit2)
 
 #Guardar tabla
 table_CD = topTable(fit3, coef=1, number=nrow(fit), sort.by= "none",adjust="fdr")
 
-FinalTable = data.frame(Annot_final[,1:3], table_CD, Annot_final[,4:11])
+FinalTable = data.frame(Annot_final[,1:3], table_CD, Annot_final[,4:10])
 
 write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE72073.txt", sep="\t",
             row.names=F, col.names=T, quote=F)
@@ -186,8 +187,8 @@ write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE72073.t
 #####################################################################
 
 #Valores de cada color
-keyvals <- ifelse(FinalTable$logFC <= -0.5 & FinalTable$adj.P.Val <0.05,
-                  '#0000ff',  ifelse(FinalTable$logFC >=0.5 & FinalTable$adj.P.Val <0.05,
+keyvals <- ifelse(FinalTable$logFC <= -0.8 & FinalTable$P.Value <0.01,
+                  '#0000ff',  ifelse(FinalTable$logFC >=0.8 & FinalTable$P.Value <0.01,
                                      '#fb0007', '#e3deeb'))
 #Nombre de valores de cada color
 keyvals[is.na(keyvals)] <- 'black'
@@ -199,13 +200,13 @@ names(keyvals)[keyvals == '#0000ff'] <- 'Down'
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Volcano_GSE72073.pdf")
 EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 x = 'logFC',
-                y = 'adj.P.Val',
-                ylab = bquote(~adj.P.Val),
+                y = 'P.Value',
+                ylab = bquote(~P.Value),
                 xlab = bquote(~logFC),
-                ylim = c(0, 2.5),
+                ylim = c(0, 5),
                 xlim = c(-4, 4),
-                pCutoff = 0.05,
-                FCcutoff = 0.5,
+                pCutoff = 0.01,
+                FCcutoff = 0.8,
                 colCustom = keyvals,
                 cutoffLineType = 'solid',
                 cutoffLineCol = 'coral4',
@@ -215,7 +216,7 @@ EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 pointSize = 1.0,
                 colAlpha = 1,
                 legendPosition = 'right',
-                legendLabels = c("NS", expression(LogFC), "adj.P.Val", expression(adj.P.Val ~ and
+                legendLabels = c("NS", expression(LogFC), "P.Value", expression(P.Value ~ and
                                                                                   ~ logFC)),
                 legendLabSize = 8,
                 title = "     GSE72073 | Volcano plot of differential expression",
@@ -226,7 +227,7 @@ EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 borderWidth = 0.5,
                 borderColour = 'black',
                 caption = NULL,
-                subtitle = "Comparation between IPF vs Control                           pCutoff = 0.05,     FCcutoff = 0.5",
+                subtitle = "Comparation between IPF vs Control                           pCutoff = 0.01,     FCcutoff = 0.8",
                 labSize = 1.0)
 dev.off()
 
@@ -240,7 +241,7 @@ dev.off()
 ##########################################################################################################################################
 
 #Filtrado de datos
-data_filtered <- FinalTable %>% filter(adj.P.Val < 0.05 & (logFC > 0.5 | logFC < -0.5 ))
+data_filtered <- FinalTable %>% filter(P.Value < 0.01 & (logFC > 0.8 | logFC < -0.8 ))
 data_filtered <- data_filtered %>% drop_na
 
 #Cantidad de genes expresados diferencialmente
@@ -257,23 +258,25 @@ write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE72073.txt", sep="
 cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
-dataZ <- t(apply(data_filtered[,10:17], 1, cal_z_score))
-data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,6:8], dataZ[,1:5])
+dataZ <- t(apply(data_filtered[,10:16], 1, cal_z_score))
+data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,5:7], dataZ[,1:4])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:12]), max(data_filtered3[,10:17]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,10:16]), max(data_filtered3[,10:16]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
+
+rwb <- colorRampPalette(colors = c("#0000ff", "white", "#fb0007"))(30)
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
 #Heatmap sin genes
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE72073.pdf")
-Heatmap(as.matrix(data_filtered3[,10:17]),
+Heatmap(as.matrix(data_filtered3[,10:16]),
         name = "Z-Score", column_title = "GSE72073 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
-        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:17])))),
+        col = rwb,
+        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:16])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
         column_names_gp = gpar(fontsize = 3, fontface = "bold"),
