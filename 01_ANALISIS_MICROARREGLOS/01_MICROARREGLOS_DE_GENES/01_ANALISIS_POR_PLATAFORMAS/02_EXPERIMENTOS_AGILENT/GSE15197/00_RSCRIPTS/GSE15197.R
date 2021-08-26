@@ -265,8 +265,10 @@ data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,1:12], dataZ[,13:19])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:21]), max(data_filtered3[,10:28]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,10:28]), max(data_filtered3[,10:28]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
+
+rwb <- colorRampPalette(colors = c("blue", "white", "red"))(30)
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
@@ -275,7 +277,7 @@ lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE15197.pdf")
 Heatmap(as.matrix(data_filtered3[,10:28]),
         name = "Z-Score", column_title = "GSE15197 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
+        col = rwb,
         column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:28])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
