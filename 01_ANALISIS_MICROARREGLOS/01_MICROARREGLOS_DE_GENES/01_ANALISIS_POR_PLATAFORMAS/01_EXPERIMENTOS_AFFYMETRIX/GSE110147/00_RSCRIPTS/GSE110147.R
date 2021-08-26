@@ -253,22 +253,24 @@ cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
 dataZ <- t(apply(data_filtered[,10:39], 1, cal_z_score))
-data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,20:27], dataZ[,10:19])
+data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,20:30], dataZ[,1:19])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:17]), max(data_filtered3[,10:36]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,10:39]), max(data_filtered3[,10:39]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
+
+rwb <- colorRampPalette(colors = c("blue", "white", "red"))(30)
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
 #Heatmap sin genes
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE110147.pdf")
-Heatmap(as.matrix(data_filtered3[,10:36]),
+Heatmap(as.matrix(data_filtered3[,10:39]),
         name = "Z-Score", column_title = "GSE110147 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
-        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:36])))),
+        col = rwb,
+        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:39])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
         column_names_gp = gpar(fontsize = 3, fontface = "bold"),
