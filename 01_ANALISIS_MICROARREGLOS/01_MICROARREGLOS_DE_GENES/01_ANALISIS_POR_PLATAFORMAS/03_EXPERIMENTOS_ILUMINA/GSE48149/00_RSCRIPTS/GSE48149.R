@@ -88,6 +88,7 @@ if (!all(colnames(rawData1) == rownames(targetinfo)))
   
 
 # Creamos un objeto que almacene las intensidades (E)
+# Correr linea por linea o da error
   
 project <- new('EListRaw')
 project@.Data[[1]] <- 'illumina'
@@ -296,8 +297,10 @@ data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,12:20], dataZ[,1:11])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:18]), max(data_filtered3[,10:29]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,10:29]), max(data_filtered3[,10:29]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
+
+rwb <- colorRampPalette(colors = c("blue", "white", "red"))(30)
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
@@ -306,7 +309,7 @@ lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE48149.pdf")
 Heatmap(as.matrix(data_filtered3[,10:29]),
         name = "Z-Score", column_title = "GSE48149 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
+        col = rwb,
         column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:29])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
