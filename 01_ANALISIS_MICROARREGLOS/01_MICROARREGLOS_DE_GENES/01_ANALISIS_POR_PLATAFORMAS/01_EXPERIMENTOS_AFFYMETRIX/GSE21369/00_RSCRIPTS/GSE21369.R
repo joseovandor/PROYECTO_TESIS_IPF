@@ -142,16 +142,16 @@ dev.off()
 #Anotacion
 #####################################################################
 
-#Descargamos la anotacion de GEO
-#Esto varia entre plataforma y plataforma
+#Seleccionamos el paquete en especifico
 
-gpl <- getGEO('GPL570')
-Annot <- Table(gpl)[1:54675, c(1, 11, 10)]
+Annot <- AnnotationDbi::select(hgu133plus2.db,
+                               keys = (featureNames(norm_data)),
+                               columns = c("SYMBOL", "GENENAME"),
+                               keytype = "PROBEID")
 
-gene_matrix <- cbind(rownames(norm_matrix),
-                     data.frame(norm_matrix, row.names=NULL))
-
-Annot_final <- merge(x=Annot,y=gene_matrix,by.x='ID',by.y='rownames(norm_matrix)')
+gene_matrix <- as.data.frame(norm_matrix)
+gene_matrix <- tibble::rownames_to_column(gene_matrix, "row_names")
+Annot_final <- merge(x= Annot,y= gene_matrix,by.x='PROBEID',by.y='row_names',all=F)
 
 
 #####################################################################
@@ -195,7 +195,7 @@ names(keyvals)[keyvals == '#0000ff'] <- 'Down'
 
 #Generamos el Volcanoplot
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Volcano_GSE21369.pdf")
-EnhancedVolcano(FinalTable,lab = FinalTable$Gene.Symbol,
+EnhancedVolcano(FinalTable,lab = FinalTable$SYMBOL,
                 x = 'logFC',
                 y = 'adj.P.Val',
                 ylab = bquote(~adj.P.Val),
@@ -260,17 +260,16 @@ data_filtered2 <- cbind(data_filtered[,1:5], dataZ[,1:5], dataZ[,6:11])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,6:10]), max(data_filtered3[,6:16]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,6:16]), max(data_filtered3[,6:16]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
 
-#Legends
-lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
+rwb <- colorRampPalette(colors = c("#0000ff", "white", "#fb0007"))(30)
 
 #Heatmap sin genes
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE21369.pdf")
 Heatmap(as.matrix(data_filtered3[,6:16]),
         name = "Z-Score", column_title = "GSE21369 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
+        col = rwb,
         column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,6:16])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
