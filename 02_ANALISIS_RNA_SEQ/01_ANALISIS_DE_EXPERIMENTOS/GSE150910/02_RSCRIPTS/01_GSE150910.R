@@ -52,7 +52,7 @@ library(tidyr)
 #muestras, este archivo fue creado en excel, también se puede usar GEOQuery para
 #este paso
 
-Phenodata <- read.table("./02_RSCRIPTS/Phenodata.txt", stringsAsFactors = F, sep = "", header =  T)
+Phenodata <- read.table("./03_PHENODATA/Phenodata.txt", stringsAsFactors = F, sep = "", header =  T)
 
 ##########################################################################################################################################
 #02.- Cargar nuestra matriz de conteos
@@ -67,7 +67,7 @@ Phenodata <- read.table("./02_RSCRIPTS/Phenodata.txt", stringsAsFactors = F, sep
 ##########################################################################################################################################
 
 #Objeto que contiene nuestros conteos
-raw_counts <- read.delim(("./01_Counts/GSE150910_counts.csv"), stringsAsFactors = F, sep = ",", row.names = 1)
+raw_counts <- read.delim(("./01_COUNTS/GSE150910_counts.csv"), stringsAsFactors = F, sep = ",", row.names = 1)
 
 #Filtrado con  el paquete dplyr de nuestros grupos que no son de nuestro estudio
 raw_counts <- raw_counts %>%
@@ -115,7 +115,7 @@ dds = DESeqDataSetFromMatrix(countData = raw_counts,
 
 ##########################################################################################################################################
 
-#Transformamos los datos por vst
+#Transformamos los datos por vst porque son mas de 30 muestras y es lo recomendado
 rld <- vst(dds, blind=FALSE)
 print(rld)
 
@@ -127,16 +127,16 @@ print(pcaData)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 #Generamos el PCA plot
-pdf("./03_GRAFICOS/PCA_GSE150910.pdf")
+pdf("./04_GRAFICOS/PCA_GSE150910.pdf")
 ggplot(pcaData, aes(x = PC1, y = PC2, label=pcaData$name, color = Group)) +
-  geom_point(size = 2) +
-  geom_text(size=2)+
+  geom_point(size = 3) +
+  geom_text(size=1)+
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-  ggtitle("PCA plot of the log-transformed expression data") +
+  ggtitle("GSE150910 | PCA plot of the log-transformed norm expression data") +
+  theme(plot.title = element_text(hjust = 0.2))+
   scale_shape_manual(values = c(4,15)) +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_color_manual(values = c("#fa1d19", "#1937fa")) + theme(legend.title = element_text(face = "bold",                                                                                           family = "serif"))
+  scale_color_manual(values = c("#0000ff", "#fb0007")) + theme(plot.title = element_text(face = "bold"))
 dev.off()
 
 ##########################################################################################################################################
@@ -158,8 +158,26 @@ res <- results(dds, contrast=c("Group", "IPF", "Control"))
 #Generamos un dataframe con los resultados
 table_final <- data.frame(res)
 
+#Agregamos las columnas de anotacion
+columns(org.Hs.eg.db)
+
+Annot <- AnnotationDbi::select(
+  org.Hs.eg.db, keys=rownames(table_final),
+  columns=c("ENSEMBL","SYMBOL","GENENAME","GENETYPE" ), keytype="SYMBOL")
+
+#Convertimos nuestra matrix en dataframe y convertimos las rownames a una columna
+table_final <- cbind(rownames(table_final),
+                     data.frame(table_final, row.names=NULL))
+
+#Creamos la tabla final con la anotacion y los valores
+AnnotFinal <- merge(x=Annot,y=table_final,by.x='SYMBOL',by.y='rownames(table_final)')
+
+#Eliminamos los NA
+AnnotFinal <- AnnotFinal %>% drop_na
+
+
 #Exportamos la tabla con los resultados
-write.table(table_final, file = "./04_TABLAS/DEG_GSE150910.txt", quote = F, row.names = T, sep="\t", col.names = T)
+write.table(table_final, file = "./05_TABLAS/DEG_GSE150910.txt", quote = F, row.names = F, sep="\t", col.names = T)
 
 
 ##########################################################################################################################################
@@ -171,13 +189,13 @@ write.table(table_final, file = "./04_TABLAS/DEG_GSE150910.txt", quote = F, row.
 ##########################################################################################################################################
 
 #Filtrado de datos
-data_filtered <- table_final %>% filter(padj < 0.01 & (log2FoldChange > 1.5 | log2FoldChange < -1.5 ))
+data_filtered <- AnnotFinal %>% filter(padj < 0.05 & (log2FoldChange > 1.5 | log2FoldChange < -1.5 ))
 
 #Cantidad de genes expresados diferencialmente
 nrow(data_filtered)
 
 #Exportamos la lista filtrada
-write.table(data_filtered, file="./05_RESULTADOS/DEG_RESULTS_GSE150910.txt", sep="\t", row.names=T, col.names=T, quote=F)
+write.table(data_filtered, file="./06_RESULTADOS/DEG_FILTER_GSE150910.txt", sep="\t", row.names=T, col.names=T, quote=F)
 
 ##########################################################################################################################################
 #07.- Volcano plot
@@ -188,8 +206,8 @@ write.table(data_filtered, file="./05_RESULTADOS/DEG_RESULTS_GSE150910.txt", sep
 ##########################################################################################################################################
 
 #Valores de cada color
-keyvals <- ifelse(table_final$log2FoldChange <= -1.5 & table_final$padj <0.01,
-                  '#0000ff',  ifelse(table_final$log2FoldChange >=1.5 & table_final$padj <0.01,
+keyvals <- ifelse(AnnotFinal$log2FoldChange <= -1.5 & AnnotFinal$padj <0.05,
+                  '#0000ff',  ifelse(AnnotFinal$log2FoldChange >=1.5 & AnnotFinal$padj <0.05,
                                      '#fb0007', '#e3deeb'))
 #Nombre de valores de cada color
 keyvals[is.na(keyvals)] <- 'black'
@@ -197,16 +215,16 @@ names(keyvals)[keyvals == '#fb0007'] <- 'Up'
 names(keyvals)[keyvals == '#e3deeb'] <- 'NS'
 names(keyvals)[keyvals == '#0000ff'] <- 'Down'
 
-#Generamos el Volcanoplot
-pdf("03_GRAFICOS/Volcano_GSE150910.pdf")
-EnhancedVolcano(table_final,lab = rownames(table_final),
+#Script del volcano
+pdf("04_GRAFICOS/Volcano_GSE150910.pdf")
+EnhancedVolcano(AnnotFinal,lab = AnnotFinal$SYMBOL,
                 x = 'log2FoldChange',
                 y = 'padj',
                 ylab = bquote(~padj),
                 xlab = bquote(~log2FoldChange),
                 ylim = c(0, 75),
-                xlim = c(-6, 6),
-                pCutoff = 0.01,
+                xlim = c(-5, 5),
+                pCutoff = 0.05,
                 FCcutoff = 1.5,
                 colCustom = keyvals,
                 cutoffLineType = 'solid',
@@ -216,20 +234,20 @@ EnhancedVolcano(table_final,lab = rownames(table_final),
                 axisLabSize = 8,
                 pointSize = 1.0,
                 colAlpha = 1,
-                legendPosition = 'bottom',
-                legendLabels = c("NS", expression(log2FoldChange), "padj", expression(padj ~ and
-                                                                                      ~ log2FoldChange)),
+                legendPosition = 'right',
+                legendLabels = c("NS", expression(log2FoldChange), "adj.P.Val", expression(padj ~ and
+                                                                                           ~ log2FoldChange)),
                 legendLabSize = 8,
-                title = "                   Volcano plot of differential expression of genes",
+                title = "     GSE150910 | Volcano plot of differential expression",
                 titleLabSize = 13,
                 subtitleLabSize = 9,
                 captionLabSize = 9,
                 border = 'full',
                 borderWidth = 0.5,
                 borderColour = 'black',
-                caption = "",
-                subtitle = "Comparation between IPF vs Control                                                                 pCutoff = 0.05,     FCcutoff = 1",
-                labSize = 1)
+                caption = NULL,
+                subtitle = "Comparation between IPF vs Control                          pCutoff = 0.05,     FCcutoff = 1.5",
+                labSize = 1.0)
 dev.off()
 
 
@@ -255,33 +273,35 @@ colnames(cnorm_sort)
 #Unimos los datos de conteos normalizados con la tabla de resultados de la expresion diferencial
 table_final_filtered <- data.frame(table_final, cnorm_sort)
 
- #Realizamos un filtrado en base a los puntos de corte establecidos
-data_filtered <- table_final_filtered %>% filter(padj < 0.01 & (log2FoldChange > 1.5 | log2FoldChange < -1.5 ))
+#Realizamos un filtrado en base a los puntos de corte establecidos
+data_filtered <- table_final_filtered %>% filter(padj < 0.05 & (log2FoldChange > 1.5 | log2FoldChange < -1.5 ))
 
 #Calculo de valor Z
 cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
-dataZ <- t(apply(data_filtered[,7:212], 1, cal_z_score))
-data_filtered2 <- cbind(data_filtered[,1:6], dataZ[,1:103], dataZ[,104:206])
+dataZ <- t(apply(data_filtered[,8:213], 1, cal_z_score))
+data_filtered2 <- cbind(data_filtered[,2:7], dataZ[,1:103], dataZ[,104:206])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,7:109]), max(data_filtered3[,7:212]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,7:212]), max(data_filtered3[,7:212]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
+
+rwb <- colorRampPalette(colors = c("#0000ff", "white", "#fb0007"))(30)
 
 #Legends
 lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
 #Heatmap sin genes
-pdf("03_GRAFICOS/Heatmap_GSE150910.pdf")
+pdf("./04_GRAFICOS/Heatmap_GSE150910.pdf")
 Heatmap(as.matrix(data_filtered3[,7:212]),
-        name = "Z-Score", column_title = "Differential gene expression heatmap (GSE150910)",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
-        col = col_fun,
+        name = "Z-Score", column_title = "GSE150910 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
+        col = rwb,
         column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,7:212])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
-        column_names_gp = gpar(fontsize = 1, fontface = "bold"),
+        column_names_gp = gpar(fontsize = 3, fontface = "bold"),
         clustering_method_rows = "ward.D2",
         width = unit(9, "cm"),
         height = unit(15, "cm"))
