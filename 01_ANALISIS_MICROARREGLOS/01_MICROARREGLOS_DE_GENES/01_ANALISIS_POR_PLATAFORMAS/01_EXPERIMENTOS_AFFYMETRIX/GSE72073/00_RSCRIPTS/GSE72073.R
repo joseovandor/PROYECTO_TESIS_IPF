@@ -147,7 +147,7 @@ dev.off()
 
 Annot <- AnnotationDbi::select(hta20transcriptcluster.db,
                                keys = (featureNames(norm_data)),
-                               columns = c("SYMBOL", "GENENAME"),
+                               columns = c("SYMBOL",  'ENSEMBL',"GENENAME"),
                                keytype = "PROBEID")
 
 gene_matrix <- as.data.frame(norm_matrix)
@@ -170,14 +170,14 @@ design
 cont.matrix<- makeContrasts(IPF-Control, levels=design)
 cont.matrix
 
-fit<-lmFit(Annot_final[4:10],design)
+fit<-lmFit(Annot_final[5:11],design)
 fit2= contrasts.fit(fit,cont.matrix)
 fit3= eBayes(fit2)
 
 #Guardar tabla
 table_CD = topTable(fit3, coef=1, number=nrow(fit), sort.by= "none",adjust="fdr")
 
-FinalTable = data.frame(Annot_final[,1:3], table_CD, Annot_final[,4:10])
+FinalTable = data.frame(Annot_final[,1:4], table_CD, Annot_final[,5:11])
 
 write.table(FinalTable, file="./05_TABLA_DE_EXPRESION_DIFERENCIAL/DEG_GSE72073.txt", sep="\t",
             row.names=F, col.names=T, quote=F)
@@ -258,12 +258,12 @@ write.table(data_filtered, file="./07_RESULTADOS/DEG_FILTER_GSE72073.txt", sep="
 cal_z_score <- function(x){
   (x - mean(x)) / sd(x)
 }
-dataZ <- t(apply(data_filtered[,10:16], 1, cal_z_score))
-data_filtered2 <- cbind(data_filtered[,1:9], dataZ[,5:7], dataZ[,1:4])
+dataZ <- t(apply(data_filtered[,11:17], 1, cal_z_score))
+data_filtered2 <- cbind(data_filtered[,1:10], dataZ[,5:7], dataZ[,1:4])
 data_filtered3 <- data_filtered2 %>% drop_na
 
 #Seleccionar color
-col_fun <- colorRamp2(seq(min(data_filtered3[,10:16]), max(data_filtered3[,10:16]), length = 3), c("#0000ff", "white", "#fb0007"))
+col_fun <- colorRamp2(seq(min(data_filtered3[,11:17]), max(data_filtered3[,11:17]), length = 3), c("#0000ff", "white", "#fb0007"))
 col_fun
 
 rwb <- colorRampPalette(colors = c("#0000ff", "white", "#fb0007"))(30)
@@ -273,10 +273,10 @@ lgd <- Legend(col_fun = col_fun, title = "Row Z-Score")
 
 #Heatmap sin genes
 pdf("./06_GRAFICOS_DE_EXPRESION_DIFERENCIAL/Heatmap_GSE72073.pdf")
-Heatmap(as.matrix(data_filtered3[,10:16]),
+Heatmap(as.matrix(data_filtered3[,11:17]),
         name = "Z-Score", column_title = "GSE72073 | Differential gene expression heatmap",  column_title_gp = gpar(fontsize = 13, fontface = "bold"),
         col = rwb,
-        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,10:16])))),
+        column_order = order(as.numeric(gsub("column", "", colnames(data_filtered3[,11:17])))),
         clustering_distance_rows = "euclidean",
         row_names_gp = gpar(fontsize = 0),
         column_names_gp = gpar(fontsize = 3, fontface = "bold"),

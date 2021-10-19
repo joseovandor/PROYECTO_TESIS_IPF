@@ -140,6 +140,41 @@ ggplot(pcaData, aes(x = PC1, y = PC2, label=pcaData$name, color = Group)) +
 dev.off()
 
 ##########################################################################################################################################
+#Boxplot vst convertion
+##########################################################################################################################################
+
+boxplot(assay(rld),
+        main="Boxplot of vst convertion",
+        col = c("darkslategray3","darkslategray3","darkslategray3","darkslategray3"
+                ,"darkslategray3","darkslategray3","darkslategray3","brown1"
+                ,"brown1","brown1","brown1","brown1","brown1",
+                "brown1","brown1"),
+        las=2,
+        boxwex = 0.4,
+        staplewex = 0.4,
+        outline=F)
+
+
+
+##########################################################################################################################################
+#Distancia entre muestras
+##########################################################################################################################################
+
+sampleDists <- dist( t( assay(rld) ) )
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- paste( rld$dex, rld$cell, sep="-" )
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+pdf("./04_GRAFICOS/DISTANCE_HEATMAP_GSE150910.pdf")
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+dev.off()
+
+
+##########################################################################################################################################
 #05.- Expresion diferencial con DEseq2
 ##########################################################################################################################################
 

@@ -36,6 +36,8 @@ library(EnhancedVolcano)
 library(DESeq2)
 library(AnnotationDbi)
 library(org.Hs.eg.db)
+library(pheatmap)
+library(biomaRt)
 
 #Plotting y opciones de color
 library(RColorBrewer)
@@ -61,6 +63,9 @@ print(sampleFiles)
 st <- read.table("03_PHENODATA/Phenodata.txt", header = T)
 st
 
+#Indicamos que los grupos que estan almacenados en la columna de Group son un factor
+st$Group <- as.factor(st$Group)
+
 
 #Creamos el objeto de sampleTable en donde vamos a seleccionar como valores
 #de condicion usando los nombres de nuestros grupos de nuestro Phenodata.csv
@@ -80,6 +85,24 @@ dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
                                   design= ~ condition)
 
 print(dds)
+
+
+##########################################################################################################################################
+#Boxplot raw counts
+##########################################################################################################################################
+
+pdf("./04_GRAFICOS/BP_RAW_GSE52463.pdf")
+boxplot(assay(dds),
+        main="Boxplot of raw counts",
+        col = c("darkslategray3","darkslategray3","darkslategray3","darkslategray3"
+                ,"darkslategray3","darkslategray3","darkslategray3","brown1"
+                ,"brown1","brown1","brown1","brown1","brown1",
+                "brown1","brown1"),
+        las=2,
+        boxwex = 0.6,
+        staplewex = 0.6,
+        outline=F)
+dev.off()
 
 ##########################################################################################################################################
 #PCA
@@ -108,6 +131,45 @@ ggplot(pcaData, aes(x = PC1, y = PC2, label=pcaData$name, color = condition)) +
   scale_color_manual(values = c("#0000ff", "#fb0007")) + theme(plot.title = element_text(face = "bold"))
 dev.off()
 
+
+
+##########################################################################################################################################
+#Boxplot rlog convertion
+##########################################################################################################################################
+
+pdf("./04_GRAFICOS/BP_TRANSFORM_GSE52463.pdf")
+boxplot(assay(rld),
+        main="Boxplot of rlog convertion",
+        xlab="", ylab=bquote(~rlog~expression),
+        col = c("darkslategray3","darkslategray3","darkslategray3","darkslategray3"
+                ,"darkslategray3","darkslategray3","darkslategray3","brown1"
+                ,"brown1","brown1","brown1","brown1","brown1",
+                "brown1","brown1"),
+        las=2,
+        boxwex = 0.6,
+        staplewex = 0.6,
+        outline=F)
+dev.off()
+
+
+##########################################################################################################################################
+#Distancia entre muestras
+##########################################################################################################################################
+
+sampleDists <- dist( t( assay(rld) ) )
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- paste( rld$dex, rld$cell, sep="-" )
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+pdf("./04_GRAFICOS/DISTANCE_HEATMAP_GSE52463.pdf")
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+dev.off()
+
+
 ##########################################################################################################################################
 #Expresiond diferencial
 ##########################################################################################################################################
@@ -122,29 +184,26 @@ res <- results(dds, contrast=c("condition", "IPF", "Control"))
 #Anotacion
 ##########################################################################################################################################
 
-#Aqui seleccionamos las columnas que deseamos incluir en nuestra anotacion
-columns(org.Hs.eg.db)
-
-convertIDs <- function( ids, from, to, db, ifMultiple=c("putNA", "useFirst")) {
-  stopifnot( inherits( db, "AnnotationDb" ) )
-  ifMultiple <- match.arg( ifMultiple )
-  suppressWarnings( selRes <- AnnotationDbi::select(
-    db, keys=ids, keytype=from, columns=c(from,to) ) )
-  if ( ifMultiple == "putNA" ) {
-    duplicatedIds <- selRes[ duplicated( selRes[,1] ), 1 ]
-    selRes <- selRes[ ! selRes[,1] %in% duplicatedIds, ]
-  }
-  return( selRes[ match( ids, selRes[,1] ), 2 ] )
-}
-
-#Lo añadimos a nuestro objeto res
-res$Symbol <- convertIDs(row.names(res), "ENSEMBL", "SYMBOL", org.Hs.eg.db)
-res$Gene_name <- convertIDs(row.names(res), "ENSEMBL", "GENENAME", org.Hs.eg.db)
-res$Gene_type <- convertIDs(row.names(res), "ENSEMBL", "GENETYPE", org.Hs.eg.db)
-
 #Creamos un dataframe con todos los datos finales
 
 table_final <- data.frame(res)
+
+
+#Eliminamos todos los valores NA de nuestros datos
+table_final <- table_final %>% drop_na
+
+#Agregamos las columnas de anotacion
+columns(org.Hs.eg.db)
+Annot <- AnnotationDbi::select(
+  org.Hs.eg.db, keys=rownames(table_final),
+  columns=c("ENSEMBL","SYMBOL","GENENAME","GENETYPE" ), keytype="ENSEMBL")
+
+#Convertimos nuestra matrix en dataframe y convertimos las rownames a una columna
+table_final <- cbind(rownames(table_final),
+                     data.frame(table_final, row.names=NULL))
+
+#Creamos la tabla final con la anotacion y los valores
+table_final <- merge(x=Annot,y=table_final,by.x='ENSEMBL',by.y='rownames(table_final)')
 
 #Eliminamos todos los valores NA de nuestros datos
 table_final <- table_final %>% drop_na
@@ -168,7 +227,7 @@ names(keyvals)[keyvals == '#0000ff'] <- 'Down'
 
 #Script del volcano
 pdf("04_GRAFICOS/Volcano_GSE52463.pdf")
-EnhancedVolcano(table_final,lab = table_final$Symbol,
+EnhancedVolcano(table_final,lab = table_final$SYMBOL,
                 x = 'log2FoldChange',
                 y = 'padj',
                 ylab = bquote(~padj),
